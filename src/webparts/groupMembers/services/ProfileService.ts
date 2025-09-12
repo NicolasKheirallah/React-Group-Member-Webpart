@@ -13,16 +13,18 @@ interface IMSGraphClientRequest {
 }
 
 export interface IProfileService {
-  getUserPhoto(userId: string): Promise<string | undefined>;
-  getUserPresence(userId: string): Promise<IUserPresence | undefined>;
+  getUserPhoto(userId: string, userPrincipalName?: string): Promise<string | undefined>;
+  getUserPresence(userId: string, userPrincipalName?: string): Promise<IUserPresence | undefined>;
   getBatchUserPresence(userIds: string[]): Promise<Record<string, IUserPresence>>;
+  dispose(): void;
 }
 
 export class ProfileService implements IProfileService {
   private context: WebPartContext;
   private graphClient: IMSGraphClient | undefined;
-  private readonly RATE_LIMIT_DELAY = 100; // ms between requests
+  private readonly RATE_LIMIT_DELAY = 100;
   private cacheService: CacheService;
+  private blobCleanupTimeouts = new Set<number>();
 
   constructor(context: WebPartContext) {
     this.context = context;
@@ -36,26 +38,59 @@ export class ProfileService implements IProfileService {
     return this.graphClient;
   }
 
-  public async getUserPhoto(userId: string): Promise<string | undefined> {
-    // Guard against invalid userId
+  private normalizeUserIdForGraph(userId: string, userPrincipalName?: string): string | null {
+    if (!userId || userId.trim() === '' || userId === 'undefined') {
+      return null;
+    }
+
+    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (userPrincipalName && emailRegex.test(userPrincipalName)) {
+      return userPrincipalName;
+    }
+    
+    if (guidRegex.test(userId) || emailRegex.test(userId)) {
+      return userId;
+    }
+
+    if (userId.includes('|')) {
+      const parts = userId.split('|');
+      if (parts.length >= 3) {
+        const possibleUpn = parts[parts.length - 1];
+        if (emailRegex.test(possibleUpn)) {
+          return possibleUpn;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  public async getUserPhoto(userId: string, userPrincipalName?: string): Promise<string | undefined> {
     if (!userId || userId.trim() === '' || userId === 'undefined') {
       return undefined;
     }
     
-    // Check LRU cache first
     const cachedPhoto = this.cacheService.getUserPhoto(userId);
     if (cachedPhoto) {
       return cachedPhoto === 'NO_PHOTO' ? undefined : cachedPhoto;
+    }
+
+    const normalizedUserId = this.normalizeUserIdForGraph(userId, userPrincipalName);
+    if (!normalizedUserId) {
+      this.cacheService.setUserPhoto(userId, 'NO_PHOTO');
+      return undefined;
     }
 
     try {
       const tokenProvider = await this.context.aadTokenProviderFactory.getTokenProvider();
       const token = await tokenProvider.getToken("https://graph.microsoft.com");
       
-      const url = `https://graph.microsoft.com/v1.0/users/${userId}/photo/$value`;
+      const url = `https://graph.microsoft.com/v1.0/users/${normalizedUserId}/photo/$value`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const abortTimeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(url, {
         headers: { 
@@ -65,11 +100,10 @@ export class ProfileService implements IProfileService {
         signal: controller.signal
       });
 
-      clearTimeout(timeoutId);
+      clearTimeout(abortTimeoutId);
 
       if (!response.ok) {
         if (response.status === 404) {
-          // User has no profile photo, cache this negative result
           this.cacheService.setUserPhoto(userId, 'NO_PHOTO');
         }
         return undefined;
@@ -80,36 +114,38 @@ export class ProfileService implements IProfileService {
       const blob = new Blob([buffer], { type: contentType });
       const objectUrl = URL.createObjectURL(blob);
 
-      // Cache the photo URL in LRU cache
       this.cacheService.setUserPhoto(userId, objectUrl);
       
-      // Set cleanup timer for object URL
-      setTimeout(() => {
+      const blobTimeoutId = setTimeout(() => {
         URL.revokeObjectURL(objectUrl);
-      }, 60 * 60 * 1000); // 60 minutes
+        this.blobCleanupTimeouts.delete(blobTimeoutId);
+      }, 60 * 60 * 1000);
+      this.blobCleanupTimeouts.add(blobTimeoutId);
 
       return objectUrl;
-    } catch (error) {
-      console.warn(`Failed to load profile photo for user ${userId}:`, error);
+    } catch {
       return undefined;
     }
   }
 
-  public async getUserPresence(userId: string): Promise<IUserPresence | undefined> {
-    // Guard against invalid userId
+  public async getUserPresence(userId: string, userPrincipalName?: string): Promise<IUserPresence | undefined> {
     if (!userId || userId.trim() === '' || userId === 'undefined') {
       return undefined;
     }
     
-    // Check cache first (5-minute TTL for presence)
     const cachedPresence = this.cacheService.getUserPresence(userId);
     if (cachedPresence) {
       return cachedPresence as IUserPresence;
     }
 
+    const normalizedUserId = this.normalizeUserIdForGraph(userId, userPrincipalName);
+    if (!normalizedUserId) {
+      return undefined;
+    }
+
     try {
       const client = await this.getGraphClient();
-      const response = await client.api(`/users/${userId}/presence`).get();
+      const response = await client.api(`/users/${normalizedUserId}/presence`).get();
       const r = response as Record<string, unknown>;
       
       const presence: IUserPresence = {
@@ -118,12 +154,10 @@ export class ProfileService implements IProfileService {
         lastSeenDateTime: r.lastSeenDateTime as string
       };
 
-      // Cache with 5-minute TTL
       this.cacheService.setUserPresence(userId, presence);
       
       return presence;
-    } catch (error) {
-      console.warn(`Could not fetch presence for user ${userId}:`, error);
+    } catch {
       return undefined;
     }
   }
@@ -132,7 +166,6 @@ export class ProfileService implements IProfileService {
     const results: Record<string, IUserPresence> = {};
     const uncachedUserIds: string[] = [];
 
-    // Check cache first
     for (const userId of userIds) {
       const cachedPresence = this.cacheService.getUserPresence(userId);
       if (cachedPresence) {
@@ -147,7 +180,6 @@ export class ProfileService implements IProfileService {
     }
 
     try {
-      // Batch presence requests (max 20 at a time)
       const batchSize = 20;
       for (let i = 0; i < uncachedUserIds.length; i += batchSize) {
         const batch = uncachedUserIds.slice(i, i + batchSize);
@@ -158,8 +190,8 @@ export class ProfileService implements IProfileService {
             if (presence) {
               results[userId] = presence;
             }
-          } catch (error) {
-            console.warn(`Failed to get presence for user ${userId}:`, error);
+          } catch {
+            // Ignore errors
           }
         });
 
@@ -177,10 +209,17 @@ export class ProfileService implements IProfileService {
           await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY));
         }
       }
-    } catch (error) {
-      console.error('Batch presence request failed:', error);
+    } catch {
+      // Ignore batch errors
     }
 
     return results;
+  }
+
+  public dispose(): void {
+    for (const timeoutId of this.blobCleanupTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.blobCleanupTimeouts.clear();
   }
 }

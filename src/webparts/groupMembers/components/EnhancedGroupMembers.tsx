@@ -75,6 +75,7 @@ const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, p
       onRenderPersonaCoin={() => (
         <UnifiedProfileImage
           userId={user.id}
+          userPrincipalName={user.userPrincipalName}
           graphService={graphService}
           fallbackInitials={fallbackInitials}
           alt={user.displayName}
@@ -87,17 +88,14 @@ const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, p
 });
 
 const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element => {
-  // Use the new architecture hooks
   const { loading, error, actions: userActions } = useUsers();
   const { searchTerm, searchResults, setSearchTerm, clearSearch } = useSearch();
   const { retry } = useLoadingState();
   const { presenceEnabled } = usePresence();
   
-  // Services
   const graphService = useUnifiedGraphService();
   const logger = useLoggingService();
 
-  // Fetch users on mount
   const fetchGroupUsers = useCallback(async (): Promise<void> => {
     userActions.loadUsersStart();
     
@@ -106,7 +104,6 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
     try {
       logger.info('GroupMembers', 'Starting to fetch site members', { roles: props.roles });
       
-      // Get all site members (includes both M365 groups and SharePoint site permissions)
       const allMembers = await graphService.getAllSiteMembers();
       
       const newUsersByRole: IUsersByRole = {
@@ -116,7 +113,6 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
         visitor: []
       };
 
-      // Organize users by their access level
       for (const user of allMembers) {
         const accessLevel = user.accessLevel || 'visitor';
         if (props.roles.includes(accessLevel)) {
@@ -124,7 +120,6 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
         }
       }
 
-      // Ensure all requested roles are included even if empty
       for (const role of props.roles) {
         if (!newUsersByRole[role as keyof IUsersByRole]) {
           newUsersByRole[role as keyof IUsersByRole] = [];
@@ -150,19 +145,16 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
     }
   }, [graphService, props.roles, userActions, logger]);
 
-  // Debounced search handler
   const handleSearchChange = useCallback((newValue?: string): void => {
     setSearchTerm(newValue || "");
   }, [setSearchTerm]);
 
-  // Load data on mount
   useEffect(() => {
     fetchGroupUsers().catch((error: Error) => {
       logger.error('GroupMembers', 'Failed to fetch group users on mount', error);
     });
   }, [fetchGroupUsers, logger]);
 
-  // UserSection Component with enhanced features
   const UserSection: React.FC<{ role: keyof IUsersByRole }> = ({ role }): JSX.Element | null => {
     const { users, totalPages, currentPage, hasMore, actions } = usePaginatedUsers(role);
     
@@ -202,22 +194,24 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
                   return (
                     <ErrorBoundary context={`UserListItem-${user.id}`} level="component">
                       <div className={styles.listItem}>
-                        <LivePersona
-                          upn={user.userPrincipalName}
-                          serviceScope={props.context.serviceScope}
-                          template={
-                            <UserPersona
-                              user={user}
-                              context={props.context}
-                              presenceEnabled={presenceEnabled}
-                            />
-                          }
-                        />
+                        <div className={styles.personaContainer}>
+                          <LivePersona
+                            upn={user.userPrincipalName}
+                            serviceScope={props.context.serviceScope}
+                            template={
+                              <UserPersona
+                                user={user}
+                                context={props.context}
+                                presenceEnabled={presenceEnabled}
+                              />
+                            }
+                          />
+                        </div>
                         <div className={styles.listActions}>
                           <IconButton
                             iconProps={{ iconName: 'Chat' }}
-                            title="Start a chat"
-                            ariaLabel="Start a chat"
+                            title={`Start a chat with ${user.displayName}`}
+                            ariaLabel={`Start a chat with ${user.displayName}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               logger.info('GroupMembers', 'Starting Teams chat', { userId: user.id, userPrincipalName: user.userPrincipalName });
@@ -226,8 +220,8 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
                           />
                           <IconButton
                             iconProps={{ iconName: 'Mail' }}
-                            title="Send email"
-                            ariaLabel="Send email"
+                            title={`Send email to ${user.displayName}`}
+                            ariaLabel={`Send email to ${user.displayName}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               logger.info('GroupMembers', 'Opening email client', { userId: user.id, mail: user.mail });

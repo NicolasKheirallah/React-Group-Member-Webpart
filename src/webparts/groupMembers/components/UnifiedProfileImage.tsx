@@ -5,6 +5,7 @@ import styles from './GroupMembers.module.scss';
 
 export interface UnifiedProfileImageProps {
   userId: string;
+  userPrincipalName?: string;
   graphService: IUnifiedGraphService;
   fallbackInitials: string;
   alt?: string;
@@ -27,6 +28,7 @@ interface ImageState {
 
 const UnifiedProfileImage: React.FC<UnifiedProfileImageProps> = ({
   userId,
+  userPrincipalName,
   graphService,
   fallbackInitials,
   alt = 'User profile image',
@@ -44,14 +46,12 @@ const UnifiedProfileImage: React.FC<UnifiedProfileImageProps> = ({
   const abortControllerRef = useRef<AbortController | null>(null);
   const cleanupTimeoutRef = useRef<number | null>(null);
 
-  // Cleanup function for blob URLs
   const cleanupBlobUrl = useCallback((url: string) => {
     if (url && url.startsWith('blob:')) {
       URL.revokeObjectURL(url);
     }
   }, []);
 
-  // Map presence availability to colors
   const getPresenceColor = useCallback((availability: string): string => {
     switch (availability?.toLowerCase()) {
       case 'available': return '#6BB700';
@@ -89,19 +89,16 @@ const UnifiedProfileImage: React.FC<UnifiedProfileImageProps> = ({
     setState(prev => ({ ...prev, isLoading: true, hasError: false }));
 
     try {
-      // Load photo and optionally presence in parallel
       const promises: Promise<unknown>[] = [
-        graphService.getUserPhoto(userId)
+        graphService.getUserPhoto(userId, userPrincipalName)
       ];
 
       if (showPresence) {
-        promises.push(graphService.getUserPresence(userId));
+        promises.push(graphService.getUserPresence(userId, userPrincipalName));
       } else {
-        // Don't load presence data when disabled
         promises.push(Promise.resolve(null));
       }
 
-      // Manual Promise.allSettled equivalent for older TypeScript targets
       const results = await Promise.all(promises.map(async (promise) => {
         try {
           const value = await promise;
@@ -145,14 +142,12 @@ const UnifiedProfileImage: React.FC<UnifiedProfileImageProps> = ({
         }));
       }
     }
-  }, [userId, graphService, showPresence, getPresenceColor]);
+  }, [userId, userPrincipalName, graphService, showPresence, getPresenceColor]);
 
-  // Load data on mount and when dependencies change
   useEffect(() => {
     loadUserData().catch(console.error);
 
     return () => {
-      // Cleanup on unmount
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -165,16 +160,13 @@ const UnifiedProfileImage: React.FC<UnifiedProfileImageProps> = ({
     };
   }, [loadUserData]);
 
-  // Cleanup blob URL when it changes
+  const prevSrc = useRef<string | undefined>();
   useEffect(() => {
-    return () => {
-      if (state.src) {
-        cleanupBlobUrl(state.src);
-      }
-    };
+    if (prevSrc.current && prevSrc.current !== state.src) {
+      cleanupBlobUrl(prevSrc.current);
+    }
+    prevSrc.current = state.src;
   }, [state.src, cleanupBlobUrl]);
-
-  // Memoized styles
   const containerStyles = useMemo(() => ({
     width: `${size}px`,
     height: `${size}px`,

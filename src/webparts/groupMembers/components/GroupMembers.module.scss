@@ -175,7 +175,7 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
         }
       }
 
-      // List view styles
+      // List view styles - FIXED for proper alignment and overflow
       .userList {
         .listItem {
           padding: 12px 16px;
@@ -186,30 +186,114 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
           align-items: center;
           cursor: pointer;
           @include transition-ease;
+          min-height: 56px; // Ensure consistent height
+          overflow: hidden; // Prevent content overflow
 
           &:hover {
             color: $sp-themePrimary;
             background-color: $sp-neutralLighter;
           }
 
+          // Main content area (persona)
+          .personaContainer {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            min-width: 0; // Allow shrinking
+            margin-right: 12px;
+            position: relative;
+            
+            // Fix for Persona component alignment
+            :global(.ms-Persona) {
+              display: flex;
+              align-items: center;
+              min-width: 0;
+              width: 100%;
+              
+              :global(.ms-Persona-coin) {
+                flex-shrink: 0; // Keep coin size fixed
+                margin-right: 12px;
+              }
+              
+              :global(.ms-Persona-details) {
+                flex: 1;
+                min-width: 0; // Allow text to shrink
+                padding-left: 0 !important; // Override default padding
+                
+                :global(.ms-Persona-primaryText) {
+                  font-weight: 600;
+                  color: $sp-neutralPrimary;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  max-width: 100%;
+                }
+                
+                :global(.ms-Persona-secondaryText) {
+                  color: $sp-themePrimary;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  max-width: 100%;
+                }
+                
+                :global(.ms-Persona-tertiaryText) {
+                  color: $sp-neutralSecondary;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  max-width: 100%;
+                }
+                
+                :global(.ms-Persona-optionalText) {
+                  color: $sp-neutralSecondary;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  max-width: 100%;
+                }
+              }
+            }
+          }
+
           .personaWrapper {
             position: relative;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
           }
           
           .presenceCircle {
             position: absolute;
-            bottom: 0;
-            right: 0;
+            bottom: 2px;
+            right: 2px;
             width: 10px;
             height: 10px;
             border-radius: 50%;
             border: 2px solid $sp-white;
+            z-index: 1;
           }
 
+          // Action buttons container - FIXED alignment
           .listActions {
             display: flex;
             align-items: center;
+            flex-shrink: 0;
+            gap: 4px;
+            
+            :global(.ms-Button) {
+              min-width: 32px;
+              width: 32px;
+              height: 32px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              
+              :global(.ms-Button-icon) {
+                margin: 0 !important;
+                font-size: 14px;
+              }
+            }
           }
         }
 
@@ -402,23 +486,70 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
     }
   }
 
-  // Persona styles
+  // Persona styles - ENHANCED with proper text overflow
   .ms-Persona {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    
+    .ms-Persona-coin {
+      flex-shrink: 0 !important;
+      margin-right: 12px !important;
+    }
+    
     .ms-Persona-details {
-      padding-left: 12px;
+      flex: 1 !important;
+      min-width: 0 !important;
+      padding-left: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
     }
 
     .ms-Persona-primaryText {
-      font-weight: 600;
-      color: $sp-neutralPrimary;
+      font-weight: 600 !important;
+      color: $sp-neutralPrimary !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      max-width: 100% !important;
+      line-height: 1.3 !important;
+      margin-bottom: 2px !important;
     }
 
     .ms-Persona-secondaryText {
-      color: $sp-themePrimary;
+      color: $sp-themePrimary !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      max-width: 100% !important;
+      line-height: 1.2 !important;
+      margin-bottom: 1px !important;
+    }
+    
+    .ms-Persona-tertiaryText {
+      color: $sp-neutralSecondary !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      max-width: 100% !important;
+      line-height: 1.2 !important;
+      font-size: 12px !important;
+    }
+    
+    .ms-Persona-optionalText {
+      color: $sp-neutralSecondary !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      max-width: 100% !important;
+      line-height: 1.2 !important;
+      font-size: 12px !important;
     }
 
     .ms-PersonaCoin-initials {
-      font-weight: 600;
+      font-weight: 600 !important;
     }
   }
 
@@ -468,9 +599,29 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
     }
   }
 
-  // Button styles in list actions
-  .listActions .ms-Button {
-    margin-left: 4px;
+  // Button styles in list actions - IMPROVED alignment
+  .listActions {
+    :global(.ms-Button) {
+      margin-left: 4px;
+      min-width: 32px !important;
+      width: 32px !important;
+      height: 32px !important;
+      
+      :global(.ms-Button-flexContainer) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+      }
+      
+      :global(.ms-Button-icon) {
+        margin: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
   }
   
   // Button styles in action buttons

@@ -103,9 +103,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     } catch (storageError) {
       console.warn('Failed to store error report:', storageError);
     }
-
-    // TODO: Send to application insights or monitoring service
-    // Example: appInsights.trackException({ exception: error, properties: errorReport });
   };
 
   private handleRetry = (): void => {

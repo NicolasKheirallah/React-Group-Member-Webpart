@@ -225,15 +225,8 @@ export class LoggingService implements ILoggingService {
     }
 
     try {
-      // TODO: Send logs to Application Insights or other monitoring service
-      // Example implementation:
-      // await this.sendToApplicationInsights(this.logs.filter(log => log.level >= LogLevel.WARN));
-      
-      // For now, just log that we would flush
       this.debug('LoggingService', `Would flush ${this.logs.length} log entries to monitoring service`);
-      
-      // Clear logs that have been flushed (keep recent ones for debugging)
-      const recentLogs = this.logs.slice(-50);
+        const recentLogs = this.logs.slice(-50);
       this.logs = recentLogs;
     } catch (error) {
       console.error('Failed to flush logs:', error);
@@ -263,9 +256,6 @@ export class LoggingService implements ILoggingService {
     }
     this.flush().catch(console.error);
   }
-
-  // TODO: Implement Application Insights integration when needed
-  // Example implementation would send logs to Application Insights for monitoring
 }
 
 // Performance monitoring decorators

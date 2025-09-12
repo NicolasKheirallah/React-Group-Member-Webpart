@@ -37,7 +37,7 @@ export class GroupMemberService implements IGroupMemberService {
   private context: WebPartContext;
   private graphClient: IMSGraphClient | undefined;
   private readonly BATCH_SIZE = 20;
-  private readonly RATE_LIMIT_DELAY = 100; // ms between requests
+  private readonly RATE_LIMIT_DELAY = 100;
   private cacheService: CacheService;
 
   constructor(context: WebPartContext) {
@@ -77,7 +77,6 @@ export class GroupMemberService implements IGroupMemberService {
   public async getGroupMembers(groupId: string, role: 'admin' | 'member'): Promise<IUser[]> {
     const cacheKey = `groupUsers_${role}_${groupId}`;
     
-    // Check LRU cache first
     const cachedData = this.cacheService.getUserData(cacheKey);
     if (cachedData) {
       return cachedData as IUser[];
@@ -107,7 +106,6 @@ export class GroupMemberService implements IGroupMemberService {
         };
       });
 
-      // Cache in LRU cache
       this.cacheService.setUserData(cacheKey, mappedUsers);
       
       return mappedUsers;
@@ -122,7 +120,6 @@ export class GroupMemberService implements IGroupMemberService {
       return {};
     }
 
-    // Check LRU cache first for all requests
     const results: Record<string, IUser[]> = {};
     const uncachedRequests: Array<{ groupId: string; role: 'admin' | 'member'; requestId: string }> = [];
 
@@ -165,7 +162,6 @@ export class GroupMemberService implements IGroupMemberService {
           requests: batchRequests
         };
 
-        // Use direct fetch for batch requests since Graph client may not support $batch
         const tokenProvider = await this.context.aadTokenProviderFactory.getTokenProvider();
         const token = await tokenProvider.getToken("https://graph.microsoft.com");
 
@@ -184,7 +180,6 @@ export class GroupMemberService implements IGroupMemberService {
 
         const batchResult: IBatchResponse = await batchResponse.json();
 
-        // Process batch responses
         for (let i = 0; i < batchResult.responses.length; i++) {
           const response = batchResult.responses[i];
           const originalRequest = batch[parseInt(response.id)];
@@ -205,7 +200,6 @@ export class GroupMemberService implements IGroupMemberService {
 
             results[originalRequest.requestId] = users;
 
-            // Cache the result in LRU cache
             const cacheKey = `groupUsers_${originalRequest.role}_${originalRequest.groupId}`;
             this.cacheService.setUserData(cacheKey, users);
           } else {
@@ -214,14 +208,12 @@ export class GroupMemberService implements IGroupMemberService {
           }
         }
 
-        // Add delay between batches
         if (batches.indexOf(batch) < batches.length - 1) {
           await new Promise(resolve => setTimeout(resolve, this.RATE_LIMIT_DELAY * 5));
         }
       }
     } catch (error) {
       console.error('Batch request failed:', error);
-      // Fallback to individual requests for failed batch
       for (const request of uncachedRequests) {
         if (!results[request.requestId]) {
           try {
@@ -241,7 +233,6 @@ export class GroupMemberService implements IGroupMemberService {
   public async resolveGroupMembers(groupId: string, accessLevel: 'owner' | 'admin' | 'member' | 'visitor'): Promise<IUser[]> {
     const cacheKey = `resolvedGroupMembers_${groupId}_${accessLevel}`;
     
-    // Check cache first
     const cachedData = this.cacheService.getUserData(cacheKey);
     if (cachedData) {
       return cachedData as IUser[];
@@ -257,7 +248,6 @@ export class GroupMemberService implements IGroupMemberService {
       
       const members: IUser[] = [];
       
-      // Handle M365 Groups
       if (groupTypes.includes('Unified')) {
         try {
           const groupMembers = await this.getGroupMembers(groupId, 'member');
@@ -270,7 +260,6 @@ export class GroupMemberService implements IGroupMemberService {
           console.warn(`Failed to get M365 group members for ${groupId}:`, error);
         }
       } else {
-        // Handle Security Groups
         try {
           const response = await client
             .api(`/groups/${groupId}/members`)
@@ -297,7 +286,6 @@ export class GroupMemberService implements IGroupMemberService {
         }
       }
 
-      // Cache the result
       this.cacheService.setUserData(cacheKey, members);
       
       return members;

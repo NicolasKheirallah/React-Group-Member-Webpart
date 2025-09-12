@@ -170,5 +170,6 @@ THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IM
 
 | Version | Date | Comments |
 |---------|------|----------|
+| 3.0.0 | February 2025 | Major refactor with fixes to retreving the right information, deeper retrival from groups such as everyone except externals etc |
 | 2.0.0 | February 2025 | Major refactor with GraphService, improved caching, LivePersona integration |
 | 1.0.0 | February 2025 | Initial release |

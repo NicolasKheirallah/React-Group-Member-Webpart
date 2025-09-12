@@ -1,11 +1,14 @@
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { IUser, IGroup, ISite, IUserPresence } from '../types/interfaces';
 import { GroupMemberService, IGroupMemberService } from './GroupMemberService';
-import { ProfileService, IProfileService } from './ProfileService';
+import { ProfileService } from './ProfileService';
 import { SitePermissionService, ISitePermissionService } from './SitePermissionService';
 
-export interface IUnifiedGraphService extends IGroupMemberService, IProfileService, ISitePermissionService {
-  // Unified interface combining all specialized services
+export interface IUnifiedGraphService extends IGroupMemberService, ISitePermissionService {
+  getUserPhoto(userId: string, userPrincipalName?: string): Promise<string | undefined>;
+  getUserPresence(userId: string, userPrincipalName?: string): Promise<IUserPresence | undefined>;
+  getBatchUserPresence(userIds: string[]): Promise<Record<string, IUserPresence>>;
+  dispose(): void;
 }
 
 export class UnifiedGraphService implements IUnifiedGraphService {
@@ -37,12 +40,12 @@ export class UnifiedGraphService implements IUnifiedGraphService {
   }
 
   // Profile Service methods
-  public async getUserPhoto(userId: string): Promise<string | undefined> {
-    return this.profileService.getUserPhoto(userId);
+  public async getUserPhoto(userId: string, userPrincipalName?: string): Promise<string | undefined> {
+    return this.profileService.getUserPhoto(userId, userPrincipalName);
   }
 
-  public async getUserPresence(userId: string): Promise<IUserPresence | undefined> {
-    return this.profileService.getUserPresence(userId);
+  public async getUserPresence(userId: string, userPrincipalName?: string): Promise<IUserPresence | undefined> {
+    return this.profileService.getUserPresence(userId, userPrincipalName);
   }
 
   public async getBatchUserPresence(userIds: string[]): Promise<Record<string, IUserPresence>> {
@@ -60,5 +63,9 @@ export class UnifiedGraphService implements IUnifiedGraphService {
 
   public async getAllSiteMembers(): Promise<IUser[]> {
     return this.sitePermissionService.getAllSiteMembers();
+  }
+
+  public dispose(): void {
+    this.profileService.dispose();
   }
 }

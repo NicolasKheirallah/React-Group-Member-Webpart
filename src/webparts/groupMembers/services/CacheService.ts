@@ -15,6 +15,7 @@ export interface ICacheService {
   clearExpired(): void;
   clear(): void;
   getStats(): { size: number; hitRate: number };
+  dispose(): void;
 }
 
 export class LRUCache<T> {
@@ -163,14 +164,14 @@ export class CacheService {
   private userCache: LRUCache<unknown>;
   private photoCache: LRUCache<string>;
   private presenceCache: LRUCache<unknown>;
+  private cleanupInterval: number | undefined;
 
   private constructor() {
-    this.userCache = new LRUCache(200, 30); // 200 items, 30 minutes TTL
-    this.photoCache = new LRUCache(100, 60); // 100 photos, 60 minutes TTL
-    this.presenceCache = new LRUCache(150, 5); // 150 presence items, 5 minutes TTL
+    this.userCache = new LRUCache(200, 30);
+    this.photoCache = new LRUCache(100, 60);
+    this.presenceCache = new LRUCache(150, 5);
 
-    // Cleanup expired items every 10 minutes
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.userCache.cleanup();
       this.photoCache.cleanup();
       this.presenceCache.cleanup();
@@ -220,5 +221,15 @@ export class CacheService {
       photos: this.photoCache.getStats(),
       presence: this.presenceCache.getStats()
     };
+  }
+
+  public dispose(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+    this.userCache.clear();
+    this.photoCache.clear();
+    this.presenceCache.clear();
   }
 }
