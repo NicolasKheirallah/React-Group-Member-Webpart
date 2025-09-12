@@ -184,7 +184,6 @@ export class SitePermissionService implements ISitePermissionService {
 
       // 2. Get M365 group members if there's an associated group
       if (associatedGroup) {
-        console.log(`Found associated M365 group: ${associatedGroup.displayName} (${associatedGroup.id})`);
         try {
           // Get group owners
           try {
@@ -195,7 +194,6 @@ export class SitePermissionService implements ISitePermissionService {
               source: 'group' as const 
             }));
             allUsers.push(...ownersWithLevel);
-            console.log(`Added ${ownersWithLevel.length} M365 group owners`);
           } catch (error) {
             errors.push(`Failed to get owners from group: ${error}`);
           }
@@ -209,23 +207,17 @@ export class SitePermissionService implements ISitePermissionService {
               source: 'group' as const 
             }));
             allUsers.push(...membersWithLevel);
-            console.log(`Added ${membersWithLevel.length} M365 group members`);
           } catch (error) {
             errors.push(`Failed to get members from group: ${error}`);
           }
         } catch (error) {
           errors.push(`Failed to get group members: ${error}`);
         }
-      } else {
-        console.log('No associated M365 group found - this is likely a Communication Site');
-      }
-
+      } 
       // 3. ALWAYS get direct site permissions (SharePoint groups, individual permissions)
-      console.log('Getting SharePoint site permissions...');
       try {
         const siteMembers = await this.getComprehensiveSiteMembers(currentSite.id);
         allUsers.push(...siteMembers);
-        console.log(`Added ${siteMembers.length} users from SharePoint site permissions`);
       } catch (error) {
         errors.push(`Failed to get site members: ${error}`);
         console.warn('Site members retrieval failed:', error);
@@ -273,7 +265,6 @@ export class SitePermissionService implements ISitePermissionService {
       try {
         const allSiteUsers = await this.getAllSiteUsersFromSharePoint();
         allUsers.push(...allSiteUsers);
-        console.log(`Added ${allSiteUsers.length} users from SharePoint native user enumeration`);
       } catch (error) {
         errors.push(`Failed to get SharePoint native users: ${error}`);
         console.warn('SharePoint native user enumeration failed:', error);
@@ -284,7 +275,6 @@ export class SitePermissionService implements ISitePermissionService {
         try {
           const backupUsers = await this.getSimpleSharePointUsers();
           allUsers.push(...backupUsers);
-          console.log(`Added ${backupUsers.length} users from simple SharePoint backup method`);
         } catch (error) {
           console.warn('Simple SharePoint backup method failed:', error);
         }
@@ -294,7 +284,6 @@ export class SitePermissionService implements ISitePermissionService {
       try {
         const roleAssignmentUsers = await this.getUsersFromRoleAssignments();
         allUsers.push(...roleAssignmentUsers);
-        console.log(`Added ${roleAssignmentUsers.length} users from role assignments`);
       } catch (error) {
         errors.push(`Failed to get role assignment users: ${error}`);
         console.warn('Role assignment users retrieval failed:', error);
@@ -368,24 +357,10 @@ export class SitePermissionService implements ISitePermissionService {
         }
       }
 
-      const uniqueUsers = Array.from(userMap.values());
-      console.log(`Found ${uniqueUsers.length} unique site members from ${allUsers.length} total entries`);
-      console.log('Final user breakdown by access level:', {
-        owners: uniqueUsers.filter(u => u.accessLevel === 'owner').length,
-        admins: uniqueUsers.filter(u => u.accessLevel === 'admin').length,
-        members: uniqueUsers.filter(u => u.accessLevel === 'member').length,
-        visitors: uniqueUsers.filter(u => u.accessLevel === 'visitor').length
-      });
-      console.log('Unique users:', uniqueUsers.map(u => ({ 
-        name: u.displayName, 
-        accessLevel: u.accessLevel, 
-        source: u.source,
-        upn: u.userPrincipalName 
-      })));
-      
+      const uniqueUsers = Array.from(userMap.values());      
       return uniqueUsers;
     } catch (error) {
-      console.error('Critical error in getAllSiteMembers:', error);
+      console.error('Error fetching all site members:', error);
       return [];
     }
   }
@@ -1226,7 +1201,6 @@ export class SitePermissionService implements ISitePermissionService {
           }
         }
         
-        console.log(`Role assignments found ${assignments.length} total assignments`);
       }
       
     } catch (error) {
@@ -1299,8 +1273,6 @@ export class SitePermissionService implements ISitePermissionService {
             }
           }
         }
-        
-        console.log(`Role assignments method found ${assignments.length} role assignments`);
       }
       
     } catch (error) {
@@ -1317,9 +1289,7 @@ export class SitePermissionService implements ISitePermissionService {
     try {
       const spHttpClient = this.context.spHttpClient;
       const siteUrl = this.context.pageContext.web.absoluteUrl;
-      
-      console.log('Trying simple SharePoint REST API calls...');
-      
+        
       // Try the most basic site users call without complex selects and with basic headers
       const basicUsersResponse = await spHttpClient.get(
         `${siteUrl}/_api/web/siteusers`,
@@ -1380,10 +1350,7 @@ export class SitePermissionService implements ISitePermissionService {
       
       if (basicGroupsResponse.ok) {
         const basicGroupsData = await basicGroupsResponse.json();
-        const groups = basicGroupsData.value || basicGroupsData.d?.results || [];
-        
-        console.log(`Found ${groups.length} basic site groups`);
-        
+        const groups = basicGroupsData.value || basicGroupsData.d?.results || [];        
         // For each group, try to get its users
         for (const group of groups) {
           try {
