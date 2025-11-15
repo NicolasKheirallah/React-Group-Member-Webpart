@@ -27,12 +27,13 @@ import {
 } from '@fluentui/react';
 import { LivePersona } from "@pnp/spfx-controls-react/lib/LivePersona";
 import { IUser, IUsersByRole, UserPersonaProps } from '../types/interfaces';
+import { AccessRole, roleLabelMap, rolePriority } from '../types/roles';
+import * as strings from 'GroupMembersWebPartStrings';
 import { IGroupMembersProps } from './IGroupMembersProps';
 import styles from './GroupMembers.module.scss';
 import UnifiedProfileImage from './UnifiedProfileImage';
 import ErrorBoundary from './ErrorBoundary';
 
-// Import the new architecture
 import { 
   useUsers, 
   useSearch, 
@@ -44,8 +45,6 @@ import {
   useUnifiedGraphService, 
   useLoggingService
 } from '../services/ServiceContainer';
-
-type AccessRole = 'owner' | 'admin' | 'member' | 'visitor';
 
 const getFallbackInitials = (displayName: string): string => {
   const names = displayName.trim().split(' ');
@@ -99,13 +98,6 @@ const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, p
   );
 });
 
-const roleLabelMap = (props: IGroupMembersProps): Record<AccessRole, string> => ({
-  owner: props.ownerLabel || 'Owners',
-  admin: props.adminLabel || 'Administrators',
-  member: props.memberLabel || 'Members',
-  visitor: props.visitorLabel || 'Visitors'
-});
-
 const claimPrincipalPatterns = ['c:0', 'spo-grid-all-users', 'everyone except external users', 'everyone'];
 
 const normalizePatternList = (patterns?: string): string[] => {
@@ -141,10 +133,10 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
   const showPageHeader = props.showPageHeader ?? false;
   const showCommandBar = props.showCommandBar !== false;
   const showSectionBorders = props.showSectionBorders !== false;
-  const customHeaderTitle = props.pageHeaderTitle || 'People directory';
+  const customHeaderTitle = props.pageHeaderTitle || strings.HeaderDefaultTitle;
   const customHeaderSubtitle = props.pageHeaderSubtitle || (searchResults.isFiltered
-    ? `Showing ${searchResults.resultCount} of ${searchResults.totalCount}`
-    : `${searchResults.totalCount} people in this site`);
+    ? `${strings.ShowingText} ${searchResults.resultCount} ${strings.OfText} ${searchResults.totalCount}`
+    : `${searchResults.totalCount} ${strings.UsersText}`);
 
   const cacheKey = useMemo(() => `gmw-exclusions-${props.context.instanceId}`, [props.context.instanceId]);
 
@@ -211,13 +203,6 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
   useEffect(() => {
     setActiveRoleKey('all');
   }, [availableRoles]);
-
-  const rolePriority: Record<AccessRole, number> = {
-    owner: 4,
-    admin: 3,
-    member: 2,
-    visitor: 1
-  };
 
   const normalize = (value?: string): string | undefined => value?.trim().toLowerCase() || undefined;
 
@@ -336,7 +321,7 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
         <div className={sectionClassName}>
           <Stack horizontal verticalAlign="center" className={styles.sectionHeader}>
             <Text variant="large" as="h3" className={styles.sectionTitle}>
-              {labels[role as AccessRole]} ({users.length}{searchResults.isFiltered ? ` of ${searchResults.resultCount}` : ''})
+              {labels[role as AccessRole]} ({users.length}{searchResults.isFiltered ? ` ${strings.OfText} ${searchResults.resultCount}` : ''})
             </Text>
             <StackItem grow>
               <div className={styles.sectionDivider} />
@@ -368,7 +353,7 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
                               }
                             />
                             {isGroupPrincipal(user) && (
-                              <span className={styles.principalBadge}>Group</span>
+                              <span className={styles.principalBadge}>{strings.GroupBadgeText}</span>
                             )}
                           </div>
                         </div>
@@ -405,23 +390,25 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
           {totalPages > 1 && (
             <div className={styles.paginationContainer}>
               <div className={styles.paginationControls}>
-                <ActionButton
-                  className={styles.paginationButton}
-                  iconProps={{ iconName: 'ChevronLeft' }}
-                  disabled={currentPage === 1}
-                  onClick={() => actions.prevPage()}
-                  text="Previous"
-                />
+                {currentPage > 1 && (
+                  <ActionButton
+                    className={styles.paginationButton}
+                    iconProps={{ iconName: 'ChevronLeft' }}
+                    onClick={() => actions.prevPage()}
+                    text={strings.PreviousText}
+                  />
+                )}
                 <Text variant="medium" className={styles.paginationText}>
-                  Page {currentPage} of {totalPages}
+                  {strings.PageText} {currentPage} {strings.OfText} {totalPages}
                 </Text>
-                <ActionButton
-                  className={styles.paginationButton}
-                  iconProps={{ iconName: 'ChevronRight' }}
-                  disabled={!hasMore}
-                  onClick={() => actions.nextPage()}
-                  text="Next"
-                />
+                {hasMore && (
+                  <ActionButton
+                    className={styles.paginationButton}
+                    iconProps={{ iconName: 'ChevronRight' }}
+                    onClick={() => actions.nextPage()}
+                    text={strings.NextText}
+                  />
+                )}
               </div>
             </div>
           )}
@@ -450,16 +437,18 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
   const commandItems: ICommandBarItemProps[] = useMemo(() => [
     {
       key: 'refresh',
-      text: 'Refresh',
+      text: strings.RefreshCommandText,
       iconProps: { iconName: 'Refresh' },
+      ariaLabel: strings.RefreshCommandText,
       onClick: () => {
         fetchGroupUsers().catch(console.error);
       }
     },
     {
       key: 'presence',
-      text: presenceEnabled ? 'Hide presence' : 'Show presence',
+      text: presenceEnabled ? strings.HidePresenceText : strings.ShowPresenceText,
       iconProps: { iconName: 'PresenceChickletVideo' },
+      ariaLabel: presenceEnabled ? strings.HidePresenceText : strings.ShowPresenceText,
       onClick: () => togglePresence(!presenceEnabled)
     }
   ], [fetchGroupUsers, presenceEnabled, togglePresence]);
@@ -502,7 +491,7 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
         {props.showSearchBox && (
           <div className={styles.searchContainer}>
             <SearchBox
-              placeholder="Search by name, role, department, or location..."
+              placeholder={strings.SearchPlaceholder}
               onChange={(_, newValue) => handleSearchChange(newValue)}
               iconProps={{ iconName: 'Search' }}
               className={styles.searchBox}
@@ -526,20 +515,20 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
 
         {loading && (
           <div className={styles.loadingContainer}>
-            <Spinner size={SpinnerSize.large} label="Loading group users..." />
+            <Spinner size={SpinnerSize.large} label={strings.LoadingText} />
             <Shimmer width="90%" />
             <Shimmer width="75%" />
-            <ProgressIndicator label="Retrieving user information" description="Please wait..." />
+            <ProgressIndicator label={strings.LoadingDescription} description={strings.CheckPermissionsText} />
           </div>
         )}
 
         {error && (
-          <MessageBar
-            messageBarType={MessageBarType.error}
-            isMultiline={true}
-            dismissButtonAriaLabel="Close"
-            onDismiss={() => userActions.loadUsersError('')}
-            className={styles.errorMessage}
+            <MessageBar
+              messageBarType={MessageBarType.error}
+              isMultiline={true}
+              dismissButtonAriaLabel="Close"
+              onDismiss={() => userActions.loadUsersError('')}
+              className={styles.errorMessage}
             actions={
               <div>
                 <DefaultButton
@@ -547,18 +536,18 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
                     retry();
                     fetchGroupUsers().catch(console.error);
                   }}
-                  text="Retry"
+                  text={strings.RetryText}
                   iconProps={{ iconName: 'Refresh' }}
                 />
               </div>
             }
           >
-            <strong>Failed to load group members</strong>
+            <strong>{strings.FailedToLoadTitle}</strong>
             <br />
             {error}
             <br />
             <small>
-              Please check your permissions and network connection. If the problem persists, contact your administrator.
+              {strings.CheckPermissionsText}
             </small>
           </MessageBar>
         )}
@@ -573,7 +562,7 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
             ))}
             {searchResults.isFiltered && !searchResults.hasResults && (
               <MessageBar messageBarType={MessageBarType.info}>
-                <Text>No users found matching &quot;{searchTerm}&quot;. Try adjusting your search terms.</Text>
+                <Text>{strings.NoUsersFoundText} “{searchTerm}”. {strings.AdjustSearchText}</Text>
               </MessageBar>
             )}
           </div>

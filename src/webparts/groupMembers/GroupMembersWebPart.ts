@@ -16,6 +16,7 @@ import { IGroupMembersWebPartProps } from './types/webPartProps';
 import {
   WebPartTitle
 } from '@pnp/spfx-controls-react/lib/WebPartTitle';
+import * as strings from 'GroupMembersWebPartStrings';
 
 // Import the new architecture
 import { 
@@ -209,7 +210,7 @@ export default class GroupMembersWebPart extends BaseClientSideWebPart<IGroupMem
       
       // Render error fallback
       const errorContent = React.createElement('div', { style: { padding: '20px' } }, 
-        'An unexpected error occurred while loading the Group Members web part.'
+        strings.UnexpectedErrorText
       );
 
       const errorElement = React.createElement(
@@ -288,33 +289,22 @@ export default class GroupMembersWebPart extends BaseClientSideWebPart<IGroupMem
     return {
       pages: [
         {
-          header: {
-            description: "Core settings"
-          },
+          header: { description: strings.CoreSettingsDescription },
           groups: [
             {
-              groupName: "People & pagination",
+              groupName: strings.CoreSettingsGroupName,
               groupFields: [
-                PropertyPaneTextField('title', {
-                  label: 'Web Part Title',
-                  placeholder: 'Site members'
-                }),
-                PropertyPaneToggle('showOwners', { label: 'Show Owners', onText: 'Yes', offText: 'No' }),
-                PropertyPaneToggle('showAdmins', { label: 'Show Administrators', onText: 'Yes', offText: 'No' }),
-                PropertyPaneToggle('showMembers', { label: 'Show Members', onText: 'Yes', offText: 'No' }),
-                PropertyPaneToggle('showVisitors', { label: 'Show Visitors', onText: 'Yes', offText: 'No' }),
-                PropertyPaneSlider('itemsPerPage', {
-                  label: 'Items per page',
-                  min: 5,
-                  max: 50,
-                  step: 5,
-                  showValue: true
-                }),
+                PropertyPaneTextField('title', { label: strings.WebPartTitleLabel, placeholder: strings.WebPartTitlePlaceholder }),
+                PropertyPaneToggle('showOwners', { label: strings.ShowOwnersLabel, onText: strings.YesText, offText: strings.NoText }),
+                PropertyPaneToggle('showAdmins', { label: strings.ShowAdminsLabel, onText: strings.YesText, offText: strings.NoText }),
+                PropertyPaneToggle('showMembers', { label: strings.ShowMembersLabel, onText: strings.YesText, offText: strings.NoText }),
+                PropertyPaneToggle('showVisitors', { label: strings.ShowVisitorsLabel, onText: strings.YesText, offText: strings.NoText }),
+                PropertyPaneSlider('itemsPerPage', { label: strings.ItemsPerPageLabel, min: 5, max: 50, step: 5, showValue: true }),
                 PropertyPaneChoiceGroup('sortField', {
-                  label: 'Default sort field',
+                  label: strings.DefaultSortFieldLabel,
                   options: [
-                    { key: 'name', text: 'Name' },
-                    { key: 'jobTitle', text: 'Job Title' }
+                    { key: 'name', text: strings.NameSortOption },
+                    { key: 'jobTitle', text: strings.JobTitleSortOption }
                   ]
                 })
               ]
@@ -322,109 +312,62 @@ export default class GroupMembersWebPart extends BaseClientSideWebPart<IGroupMem
           ]
         },
         {
-          header: {
-            description: "Layout & chrome"
-          },
+          header: { description: strings.LayoutSettingsDescription },
           groups: [
             {
-              groupName: "Surface",
+              groupName: strings.LayoutSettingsGroupName,
               groupFields: [
-                PropertyPaneToggle('showSearchBox', { label: 'Search box', onText: 'Show', offText: 'Hide' }),
-                PropertyPaneToggle('showPresenceIndicator', { label: 'Presence indicator', onText: 'Show', offText: 'Hide' }),
-                PropertyPaneToggle('showCommandBar', { label: 'Command bar', onText: 'Show', offText: 'Hide' }),
-                PropertyPaneToggle('showPageHeader', { label: 'Page header', onText: 'Show', offText: 'Hide' }),
-                PropertyPaneToggle('showSummaryGrid', { label: 'Summary cards', onText: 'Show', offText: 'Hide' }),
-                PropertyPaneToggle('showRolePivot', { label: 'Role navigation tabs', onText: 'Show', offText: 'Hide' }),
-                PropertyPaneToggle('showSectionBorders', { label: 'Section borders', onText: 'Bordered', offText: 'Borderless' }),
-                PropertyPaneToggle('showRoleLabels', { label: 'Role label under name', onText: 'Show', offText: 'Hide' })
+                PropertyPaneToggle('showSearchBox', { label: strings.ShowSearchBoxLabel, onText: strings.ShowText, offText: strings.HideText }),
+                PropertyPaneToggle('showPresenceIndicator', { label: strings.ShowPresenceLabel, onText: strings.ShowText, offText: strings.HideText }),
+                PropertyPaneToggle('showCommandBar', { label: strings.ShowCommandBarLabel, onText: strings.VisibleText, offText: strings.HiddenText }),
+                PropertyPaneToggle('showPageHeader', { label: strings.ShowPageHeaderLabel, onText: strings.VisibleText, offText: strings.HiddenText }),
+                PropertyPaneToggle('showSummaryGrid', { label: strings.ShowSummaryGridLabel, onText: strings.VisibleText, offText: strings.HiddenText }),
+                PropertyPaneToggle('showRolePivot', { label: strings.ShowRolePivotLabel, onText: strings.VisibleText, offText: strings.HiddenText }),
+                PropertyPaneToggle('showSectionBorders', { label: strings.ShowSectionBordersLabel, onText: strings.BorderedText, offText: strings.BorderlessText }),
+                PropertyPaneToggle('showRoleLabels', { label: strings.ShowRoleLabelsLabel, onText: strings.ShowText, offText: strings.HideText })
               ]
             }
           ]
         },
         {
-          header: {
-            description: "Customize header content"
-          },
+          header: { description: strings.HeaderSettingsDescription },
           groups: [
             {
-              groupName: "Header",
+              groupName: strings.HeaderSettingsGroupName,
               groupFields: [
-                PropertyPaneTextField('pageHeaderTitle', {
-                  label: 'Header title',
-                  placeholder: 'People directory'
-                }),
-                PropertyPaneTextField('pageHeaderSubtitle', {
-                  label: 'Header subtitle',
-                  placeholder: 'Describe this directory'
-                })
+                PropertyPaneTextField('pageHeaderTitle', { label: strings.PageHeaderTitleLabel, placeholder: strings.PageHeaderTitlePlaceholder }),
+                PropertyPaneTextField('pageHeaderSubtitle', { label: strings.PageHeaderSubtitleLabel, placeholder: strings.PageHeaderSubtitlePlaceholder })
               ]
             }
           ]
         },
         {
-          header: {
-            description: "Customize the labels for different user roles."
-          },
+          header: { description: strings.RoleLabelsDescription },
           groups: [
             {
-              groupName: "Role Labels",
+              groupName: strings.RoleLabelsGroupName,
               groupFields: [
-                PropertyPaneTextField('ownerLabel', {
-                  label: 'Owners Label',
-                  placeholder: 'Owners'
-                }),
-                PropertyPaneTextField('adminLabel', {
-                  label: 'Administrators Label', 
-                  placeholder: 'Administrators'
-                }),
-                PropertyPaneTextField('memberLabel', {
-                  label: 'Members Label',
-                  placeholder: 'Members'
-                }),
-                PropertyPaneTextField('visitorLabel', {
-                  label: 'Visitors Label',
-                  placeholder: 'Visitors'
-                })
+                PropertyPaneTextField('ownerLabel', { label: strings.OwnersLabelField, placeholder: strings.OwnersPlaceholder }),
+                PropertyPaneTextField('adminLabel', { label: strings.AdminsLabelField, placeholder: strings.AdminsPlaceholder }),
+                PropertyPaneTextField('memberLabel', { label: strings.MembersLabelField, placeholder: strings.MembersPlaceholder }),
+                PropertyPaneTextField('visitorLabel', { label: strings.VisitorsLabelField, placeholder: strings.VisitorsPlaceholder })
               ]
             }
           ]
         },
         {
-          header: {
-            description: "Exclude service accounts or groups."
-          },
+          header: { description: strings.FilteringSettingsDescription },
           groups: [
             {
-              groupName: "Filtering",
+              groupName: strings.FilteringGroupName,
               groupFields: [
+                PropertyPaneToggle('hideClaimsPrincipals', { label: strings.HideClaimsPrincipalsLabel, onText: strings.HideText, offText: strings.ShowText }),
                 PropertyPaneTextField('excludedPrincipals', {
-                  label: 'Exclude principals containing',
+                  label: strings.ExcludedPrincipalsLabel,
                   multiline: true,
                   resizable: true,
-                  placeholder: 'sharepoint\\system\nnt service\\'
-                })
-              ]
-            }
-          ]
-        },
-        {
-          header: {
-            description: "Exclude service accounts or claims groups."
-          },
-          groups: [
-            {
-              groupName: "Filtering",
-              groupFields: [
-                PropertyPaneToggle('hideClaimsPrincipals', {
-                  label: 'Hide built-in claims groups (Everyone, etc.)',
-                  onText: 'Hide',
-                  offText: 'Show'
-                }),
-                PropertyPaneTextField('excludedPrincipals', {
-                  label: 'Exclude principals containing',
-                  multiline: true,
-                  resizable: true,
-                  placeholder: 'sharepoint\\system\nnt service\\'
+                  placeholder: strings.ExcludedPrincipalsPlaceholder,
+                  description: strings.ExcludedPrincipalsDescription
                 })
               ]
             }

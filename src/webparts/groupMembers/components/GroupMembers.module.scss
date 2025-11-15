@@ -298,7 +298,7 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
               :global(.ms-Persona-details) {
                 flex: 1;
                 min-width: 0; // Allow text to shrink
-                padding-left: 0 !important; // Override default padding
+                padding-left: 10px !important; // add spacing between image and text
                 
                 :global(.ms-Persona-primaryText) {
                   font-weight: 600;
@@ -536,11 +536,6 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
     }
   }
 
-  .userSectionBorderless {
-    border: none;
-    background-color: transparent;
-    padding: 0;
-  }
 }
 
 // Error boundary styles

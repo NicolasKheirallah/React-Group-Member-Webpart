@@ -23,6 +23,18 @@ declare interface IGroupMembersWebPartStrings {
   FeaturesGroupName: string;
   ShowSearchBoxLabel: string;
   ShowPresenceLabel: string;
+  ShowCommandBarLabel: string;
+  ShowPageHeaderLabel: string;
+  ShowSummaryGridLabel: string;
+  ShowRolePivotLabel: string;
+  ShowSectionBordersLabel: string;
+  ShowRoleLabelsLabel: string;
+  VisibleText: string;
+  HiddenText: string;
+  BorderedText: string;
+  BorderlessText: string;
+  ShowText: string;
+  HideText: string;
   ItemsPerPageLabel: string;
   DefaultSortFieldLabel: string;
   EnabledText: string;
@@ -48,6 +60,28 @@ declare interface IGroupMembersWebPartStrings {
   MembersDefaultLabel: string;
   VisitorsDefaultLabel: string;
   MemberDefaultTitle: string;
+  HeaderDefaultTitle: string;
+  HeaderDefaultSubtitle: string;
+  GroupBadgeText: string;
+  RefreshCommandText: string;
+  ShowPresenceText: string;
+  HidePresenceText: string;
+  CoreSettingsDescription: string;
+  CoreSettingsGroupName: string;
+  LayoutSettingsDescription: string;
+  LayoutSettingsGroupName: string;
+  HeaderSettingsDescription: string;
+  HeaderSettingsGroupName: string;
+  FilteringSettingsDescription: string;
+  FilteringGroupName: string;
+  PageHeaderTitleLabel: string;
+  PageHeaderTitlePlaceholder: string;
+  PageHeaderSubtitleLabel: string;
+  PageHeaderSubtitlePlaceholder: string;
+  HideClaimsPrincipalsLabel: string;
+  ExcludedPrincipalsLabel: string;
+  ExcludedPrincipalsPlaceholder: string;
+  ExcludedPrincipalsDescription: string;
   
   // Search
   SearchPlaceholder: string;
