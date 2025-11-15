@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { IUser, IUsersByRole, ICurrentPages } from '../types/interfaces';
 
 export interface AppState {
@@ -32,6 +33,8 @@ export type StateAction =
   | { type: 'USER_SELECTED'; payload: IUser | undefined }
   | { type: 'SORT_FIELD_CHANGED'; payload: string }
   | { type: 'PRESENCE_TOGGLED'; payload: boolean }
+  | { type: 'ITEMS_PER_PAGE_CHANGED'; payload: number }
+  | { type: 'SHOW_SEARCH_BOX_CHANGED'; payload: boolean }
   | { type: 'CACHE_STATS_UPDATED'; payload: { hitRate: number; size: number } }
   | { type: 'STATE_RESET' };
 
@@ -45,10 +48,15 @@ export interface IStateManager {
 export class StateManager implements IStateManager {
   private state: AppState;
   private listeners: Set<(state: AppState) => void> = new Set();
-  private static instance: StateManager;
+  private readonly initialOverrides?: Partial<AppState>;
 
   constructor(initialState?: Partial<AppState>) {
-    this.state = {
+    this.initialOverrides = initialState;
+    this.state = this.createState(initialState);
+  }
+
+  private createState(initialState?: Partial<AppState>): AppState {
+    const defaultState: AppState = {
       users: {
         usersByRole: {
           owner: [],
@@ -78,16 +86,37 @@ export class StateManager implements IStateManager {
         lastClearTime: Date.now(),
         hitRate: 0,
         size: 0
-      },
-      ...initialState
+      }
     };
-  }
 
-  public static getInstance(initialState?: Partial<AppState>): StateManager {
-    if (!StateManager.instance) {
-      StateManager.instance = new StateManager(initialState);
+    if (!initialState) {
+      return defaultState;
     }
-    return StateManager.instance;
+
+    return {
+      ...defaultState,
+      ...initialState,
+      users: {
+        ...defaultState.users,
+        ...initialState.users,
+        usersByRole: {
+          ...defaultState.users.usersByRole,
+          ...(initialState.users?.usersByRole ?? {})
+        },
+        currentPages: {
+          ...defaultState.users.currentPages,
+          ...(initialState.users?.currentPages ?? {})
+        }
+      },
+      ui: {
+        ...defaultState.ui,
+        ...initialState.ui
+      },
+      cache: {
+        ...defaultState.cache,
+        ...initialState.cache
+      }
+    };
   }
 
   public getState(): AppState {
@@ -114,7 +143,8 @@ export class StateManager implements IStateManager {
   }
 
   public reset(): void {
-    this.dispatch({ type: 'STATE_RESET' });
+    this.state = this.createState(this.initialOverrides);
+    this.notifyListeners();
   }
 
   private reducer(state: AppState, action: StateAction): AppState {
@@ -225,8 +255,35 @@ export class StateManager implements IStateManager {
           }
         };
 
+      case 'ITEMS_PER_PAGE_CHANGED':
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            itemsPerPage: action.payload
+          },
+          users: {
+            ...state.users,
+            currentPages: {
+              owner: 1,
+              admin: 1,
+              member: 1,
+              visitor: 1
+            }
+          }
+        };
+
+      case 'SHOW_SEARCH_BOX_CHANGED':
+        return {
+          ...state,
+          ui: {
+            ...state.ui,
+            showSearchBox: action.payload
+          }
+        };
+
       case 'STATE_RESET':
-        return new StateManager().getState();
+        return this.createState(this.initialOverrides);
 
       default:
         return state;
@@ -371,9 +428,32 @@ export class StateManager implements IStateManager {
     this.dispatch({ type: 'PRESENCE_TOGGLED', payload: enabled });
   }
 
+  public setItemsPerPage(itemsPerPage: number): void {
+    this.dispatch({ type: 'ITEMS_PER_PAGE_CHANGED', payload: itemsPerPage });
+  }
+
+  public setShowSearchBox(visible: boolean): void {
+    this.dispatch({ type: 'SHOW_SEARCH_BOX_CHANGED', payload: visible });
+  }
+
   public updateCacheStats(hitRate: number, size: number): void {
     this.dispatch({ type: 'CACHE_STATS_UPDATED', payload: { hitRate, size } });
   }
+}
+
+const StateManagerContext = React.createContext<StateManager | null>(null);
+
+export const StateManagerProvider: React.FC<React.PropsWithChildren<{ stateManager: StateManager }>> = ({
+  stateManager,
+  children
+}) => React.createElement(StateManagerContext.Provider, { value: stateManager }, children);
+
+export function useProvidedStateManager(): StateManager {
+  const stateManager = React.useContext(StateManagerContext);
+  if (!stateManager) {
+    throw new Error('State manager is not available in the current React tree.');
+  }
+  return stateManager;
 }
 
 export default StateManager;

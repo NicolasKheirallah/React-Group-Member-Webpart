@@ -19,6 +19,14 @@ This web part provides a comprehensive solution for viewing and interacting with
 - **Responsive Design**: Optimized for desktop and mobile experiences
 - **Accessibility**: Full screen reader and keyboard navigation support
 
+### What's new in v0.1.0
+
+- **Configurable filtering** – exclude service accounts/claims principals with a pattern list and optional toggle to hide “Everyone” style groups.
+- **Command bar & chrome controls** – show or hide the command bar, page header, summary cards, role pivot, and section borders per instance.
+- **Role labels & group badges** – optionally display each person’s access role and highlight group/claim principals directly in the list.
+- **Presence/photo batching** – persona rendering now batches presence and photo requests per visible page, dramatically reducing Graph traffic.
+- **Improved deduplication** – users coming from M365 groups and SharePoint permissions merge under the highest permission level.
+
 ## Features
 
 - **Intelligent Site Detection**: Automatically detects M365 Groups vs Communication sites
@@ -40,20 +48,42 @@ This web part provides a comprehensive solution for viewing and interacting with
   - Customizable web part title (inline editing)
   - Responsive design
 
-## Web Part Properties
+## Configuration overview
 
-| Property | Type | Description | Default | Required |
-|----------|------|-------------|---------|----------|
-| `title` | String | Custom title for the web part | 'Site Members' | No |
-| `roles` | Array of Strings | Roles to display (owner, admin, member, visitor) | None | Yes |
-| `itemsPerPage` | Number | Number of users per page | 10 | No |
-| `sortField` | String | Sort users by 'name' or 'jobTitle' | 'name' | No |
-| `showSearchBox` | Boolean | Enable/disable search functionality | true | No |
-| `showPresenceIndicator` | Boolean | Show Microsoft Teams presence status | true | No |
-| `ownerLabel` | String | Custom label for owners | 'Owners' | No |
-| `adminLabel` | String | Custom label for administrators | 'Administrators' | No |
-| `memberLabel` | String | Custom label for members | 'Members' | No |
-| `visitorLabel` | String | Custom label for visitors | 'Visitors' | No |
+### 1. People & pagination
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Show Owners/Admins/Members/Visitors | Toggle each role on/off | Owners/Admins/Members on, Visitors off |
+| Items per page | Page size for each role section | 10 |
+| Sort field | `name` or `jobTitle` | `name` |
+
+### 2. Layout & chrome
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Search box | Display the search input above the list | On |
+| Presence indicator | Render Teams presence pills | Off |
+| Command bar | Show the page-level action bar (Refresh, Presence toggle) | On |
+| Page header | Show header title/subtitle | Off |
+| Summary cards | Display role counts above the list | Off |
+| Role navigation (pivot) | Tabs for switching roles | Off |
+| Section borders | Bordered vs. borderless cards | On |
+| Role label under persona | Show highest role below each name | Off |
+
+### 3. Header configuration
+
+- `pageHeaderTitle` – defaults to **People directory**
+- `pageHeaderSubtitle` – defaults to **Your site directory**
+
+### 4. Role labels
+
+Use `ownerLabel`, `adminLabel`, `memberLabel`, and `visitorLabel` to localize the role names that appear in section headers and persona labels.
+
+### 5. Filtering
+
+- `hideClaimsPrincipals` – hides well-known claims providers (Everyone, Everyone except external users, SPO grid, etc.)
+- `excludedPrincipals` – multi-line textbox; each line is a lower-case substring matched against login/UPN to suppress service accounts such as `sharepoint\system` or `nt service\`.
 
 ## Compatibility
 
@@ -170,6 +200,7 @@ THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IM
 
 | Version | Date | Comments |
 |---------|------|----------|
+| 4.0.0 | November 2025 | Added configurable filtering, batched presence/photo loading, layout toggles, and reorganized settings |
 | 3.0.0 | February 2025 | Major refactor with fixes to retreving the right information, deeper retrival from groups such as everyone except externals etc |
 | 2.0.0 | February 2025 | Major refactor with GraphService, improved caching, LivePersona integration |
 | 1.0.0 | February 2025 | Initial release |

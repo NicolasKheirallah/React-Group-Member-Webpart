@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { StateManager, AppState } from '../state/StateManager';
+import { StateManager, AppState, useProvidedStateManager } from '../state/StateManager';
 import { IUser, IUsersByRole } from '../types/interfaces';
 
 // Hook for using the global state manager
 export function useStateManager(): StateManager {
-  const [stateManager] = useState(() => StateManager.getInstance());
-  return stateManager;
+  return useProvidedStateManager();
 }
 
 // Hook for subscribing to state changes
@@ -95,6 +94,8 @@ export function useUI(): {
     selectUser: (user: IUser | undefined) => void;
     setSortField: (sortField: string) => void;
     togglePresence: (enabled: boolean) => void;
+    setItemsPerPage: (itemsPerPage: number) => void;
+    setShowSearchBox: (visible: boolean) => void;
   };
 } {
   const stateManager = useStateManager();
@@ -103,7 +104,9 @@ export function useUI(): {
   const actions = useMemo(() => ({
     selectUser: (user: IUser | undefined) => stateManager.selectUser(user),
     setSortField: (sortField: string) => stateManager.setSortField(sortField),
-    togglePresence: (enabled: boolean) => stateManager.togglePresence(enabled)
+    togglePresence: (enabled: boolean) => stateManager.togglePresence(enabled),
+    setItemsPerPage: (itemsPerPage: number) => stateManager.setItemsPerPage(itemsPerPage),
+    setShowSearchBox: (visible: boolean) => stateManager.setShowSearchBox(visible)
   }), [stateManager]);
 
   return {

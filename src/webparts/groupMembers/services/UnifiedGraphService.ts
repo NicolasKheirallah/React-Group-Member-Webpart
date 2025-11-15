@@ -8,6 +8,7 @@ export interface IUnifiedGraphService extends IGroupMemberService, ISitePermissi
   getUserPhoto(userId: string, userPrincipalName?: string): Promise<string | undefined>;
   getUserPresence(userId: string, userPrincipalName?: string): Promise<IUserPresence | undefined>;
   getBatchUserPresence(userIds: string[]): Promise<Record<string, IUserPresence>>;
+  prefetchUserPhotos(users: IUser[]): Promise<void>;
   dispose(): void;
 }
 
@@ -50,6 +51,10 @@ export class UnifiedGraphService implements IUnifiedGraphService {
 
   public async getBatchUserPresence(userIds: string[]): Promise<Record<string, IUserPresence>> {
     return this.profileService.getBatchUserPresence(userIds);
+  }
+
+  public async prefetchUserPhotos(users: IUser[]): Promise<void> {
+    return this.profileService.prefetchUserPhotos(users);
   }
 
   // Site Permission Service methods

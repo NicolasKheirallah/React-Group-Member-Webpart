@@ -1,5 +1,5 @@
 import { WebPartContext } from '@microsoft/sp-webpart-base';
-import { IUserPresence } from '../types/interfaces';
+import { IUserPresence, IUser } from '../types/interfaces';
 import { CacheService } from './CacheService';
 
 // Type for Microsoft Graph Client
@@ -16,6 +16,7 @@ export interface IProfileService {
   getUserPhoto(userId: string, userPrincipalName?: string): Promise<string | undefined>;
   getUserPresence(userId: string, userPrincipalName?: string): Promise<IUserPresence | undefined>;
   getBatchUserPresence(userIds: string[]): Promise<Record<string, IUserPresence>>;
+  prefetchUserPhotos(users: IUser[]): Promise<void>;
   dispose(): void;
 }
 
@@ -24,7 +25,6 @@ export class ProfileService implements IProfileService {
   private graphClient: IMSGraphClient | undefined;
   private readonly RATE_LIMIT_DELAY = 100;
   private cacheService: CacheService;
-  private blobCleanupTimeouts = new Set<number>();
 
   constructor(context: WebPartContext) {
     this.context = context;
@@ -110,19 +110,18 @@ export class ProfileService implements IProfileService {
       }
 
       const buffer = await response.arrayBuffer();
-      const contentType = response.headers.get("content-type") || "image/jpeg";
-      const blob = new Blob([buffer], { type: contentType });
-      const objectUrl = URL.createObjectURL(blob);
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const byteArray = new Uint8Array(buffer);
+      let binary = '';
+      for (const byte of byteArray) {
+        binary += String.fromCharCode(byte);
+      }
+      const base64 = window.btoa(binary);
+      const dataUrl = `data:${contentType};base64,${base64}`;
 
-      this.cacheService.setUserPhoto(userId, objectUrl);
-      
-      const blobTimeoutId = setTimeout(() => {
-        URL.revokeObjectURL(objectUrl);
-        this.blobCleanupTimeouts.delete(blobTimeoutId);
-      }, 60 * 60 * 1000);
-      this.blobCleanupTimeouts.add(blobTimeoutId);
+      this.cacheService.setUserPhoto(userId, dataUrl);
 
-      return objectUrl;
+      return dataUrl;
     } catch {
       return undefined;
     }
@@ -216,10 +215,21 @@ export class ProfileService implements IProfileService {
     return results;
   }
 
-  public dispose(): void {
-    for (const timeoutId of this.blobCleanupTimeouts) {
-      clearTimeout(timeoutId);
+  public async prefetchUserPhotos(users: IUser[]): Promise<void> {
+    if (!users.length) {
+      return;
     }
-    this.blobCleanupTimeouts.clear();
+
+    await Promise.all(users.map(async (user) => {
+      try {
+        await this.getUserPhoto(user.id, user.userPrincipalName);
+      } catch {
+        // Ignore individual failures; cache miss will be handled lazily
+      }
+    }));
+  }
+
+  public dispose(): void {
+    // Nothing to dispose – caching uses data URLs.
   }
 }

@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { LoggingService, ILoggingService } from './LoggingService';
 import { ConfigurationService, IConfigurationService } from './ConfigurationService';
@@ -199,9 +200,6 @@ export class ServiceContainer implements IServiceContainer {
   }
 }
 
-// Global service container instance
-let globalContainer: ServiceContainer | undefined;
-
 export function createServiceContainer(context: WebPartContext): ServiceContainer {
   const container = new ServiceContainer();
 
@@ -245,104 +243,59 @@ export function createServiceContainer(context: WebPartContext): ServiceContaine
   return container;
 }
 
-export function getGlobalContainer(): ServiceContainer {
-  if (!globalContainer) {
-    throw new Error('Global service container has not been initialized. Call setGlobalContainer first.');
+const ServiceContainerContext = React.createContext<ServiceContainer | null>(null);
+
+export const ServiceProvider: React.FC<React.PropsWithChildren<{ container: ServiceContainer }>> = ({
+  container,
+  children
+}) => React.createElement(ServiceContainerContext.Provider, { value: container }, children);
+
+export function useServiceContainer(): ServiceContainer {
+  const container = React.useContext(ServiceContainerContext);
+  if (!container) {
+    throw new Error('Service container is not available in the current React tree.');
   }
-  return globalContainer;
+  return container;
 }
 
-export function setGlobalContainer(container: ServiceContainer): void {
-  if (globalContainer) {
-    globalContainer.dispose();
-  }
-  globalContainer = container;
-}
-
-export function disposeGlobalContainer(): void {
-  if (globalContainer) {
-    globalContainer.dispose();
-    globalContainer = undefined;
-  }
-}
-
-// Decorator for automatic dependency injection
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function Injectable<T extends new (...args: any[]) => object>(constructor: T): T {
-  return class extends constructor {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    constructor(...args: any[]) {
-      super(...args);
-      
-      // Auto-inject dependencies if the class has an 'inject' method
-      const instance = this as { inject?: (container: ServiceContainer) => void };
-      if (typeof instance.inject === 'function') {
-        instance.inject(getGlobalContainer());
-      }
-    }
-  } as T;
-}
-
-// Decorator for injecting specific services
-export function Inject(token: string | symbol): (target: unknown, propertyKey: string) => void {
-  return function (target: unknown, propertyKey: string): void {
-    // Store metadata about injected properties
-    const targetWithProps = target as { _injectedProperties?: Array<{ propertyKey: string; token: string | symbol }> };
-    if (!targetWithProps._injectedProperties) {
-      targetWithProps._injectedProperties = [];
-    }
-    targetWithProps._injectedProperties.push({ propertyKey, token });
-  };
-}
-
-// Helper function to resolve dependencies for decorated classes
-export function resolveDependencies(instance: Record<string, unknown>, container: ServiceContainer): void {
-  const proto = Object.getPrototypeOf(instance) as { _injectedProperties?: Array<{ propertyKey: string; token: string | symbol }> };
-  if (proto._injectedProperties) {
-    for (const { propertyKey, token } of proto._injectedProperties) {
-      instance[propertyKey] = container.resolve(token);
-    }
-  }
-}
-
-// Type-safe service resolver functions
-export function useLoggingService(container?: ServiceContainer): ILoggingService {
-  const serviceContainer = container || getGlobalContainer();
+// Type-safe service resolver functions bound to the current React context
+export function useLoggingService(): ILoggingService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<ILoggingService>(SERVICE_TOKENS.LOGGING_SERVICE);
 }
 
-export function useConfigurationService(container?: ServiceContainer): IConfigurationService {
-  const serviceContainer = container || getGlobalContainer();
+export function useConfigurationService(): IConfigurationService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<IConfigurationService>(SERVICE_TOKENS.CONFIGURATION_SERVICE);
 }
 
-export function useRetryService(container?: ServiceContainer): IRetryService {
-  const serviceContainer = container || getGlobalContainer();
+export function useRetryService(): IRetryService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<IRetryService>(SERVICE_TOKENS.RETRY_SERVICE);
 }
 
-export function useCacheService(container?: ServiceContainer): ICacheService {
-  const serviceContainer = container || getGlobalContainer();
+export function useCacheService(): ICacheService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<ICacheService>(SERVICE_TOKENS.CACHE_SERVICE);
 }
 
-export function useGroupMemberService(container?: ServiceContainer): IGroupMemberService {
-  const serviceContainer = container || getGlobalContainer();
+export function useGroupMemberService(): IGroupMemberService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<IGroupMemberService>(SERVICE_TOKENS.GROUP_MEMBER_SERVICE);
 }
 
-export function useProfileService(container?: ServiceContainer): IProfileService {
-  const serviceContainer = container || getGlobalContainer();
+export function useProfileService(): IProfileService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<IProfileService>(SERVICE_TOKENS.PROFILE_SERVICE);
 }
 
-export function useSitePermissionService(container?: ServiceContainer): ISitePermissionService {
-  const serviceContainer = container || getGlobalContainer();
+export function useSitePermissionService(): ISitePermissionService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<ISitePermissionService>(SERVICE_TOKENS.SITE_PERMISSION_SERVICE);
 }
 
-export function useUnifiedGraphService(container?: ServiceContainer): IUnifiedGraphService {
-  const serviceContainer = container || getGlobalContainer();
+export function useUnifiedGraphService(): IUnifiedGraphService {
+  const serviceContainer = useServiceContainer();
   return serviceContainer.resolve<IUnifiedGraphService>(SERVICE_TOKENS.UNIFIED_GRAPH_SERVICE);
 }
 

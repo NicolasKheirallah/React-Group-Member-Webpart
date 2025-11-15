@@ -50,6 +50,8 @@ export interface IUser {
   accessLevel?: 'owner' | 'admin' | 'member' | 'visitor';
 
   source?: 'group' | 'site';
+  principalType?: 'User' | 'Group' | 'SecurityGroup' | 'ClaimsPrincipal' | string;
+  isGroup?: boolean;
 }
 
 export interface IUsersByRole {
@@ -77,5 +79,4 @@ export interface IUserPresence {
   activity: string;
   lastSeenDateTime?: string;
 }
-
 

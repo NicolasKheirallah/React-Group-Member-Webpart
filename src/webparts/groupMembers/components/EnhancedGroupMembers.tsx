@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import {
   Persona,
   PersonaSize,
@@ -10,14 +10,20 @@ import {
   Text,
   Stack,
   StackItem,
-  PrimaryButton,
   SearchBox,
   IconButton,
   ProgressIndicator,
   MessageBar,
   MessageBarType,
   FocusZone,
-  List
+  List,
+  CommandBar,
+  ICommandBarItemProps,
+  Pivot,
+  PivotItem,
+  Separator,
+  Shimmer,
+  ActionButton
 } from '@fluentui/react';
 import { LivePersona } from "@pnp/spfx-controls-react/lib/LivePersona";
 import { IUser, IUsersByRole, UserPersonaProps } from '../types/interfaces';
@@ -39,6 +45,8 @@ import {
   useLoggingService
 } from '../services/ServiceContainer';
 
+type AccessRole = 'owner' | 'admin' | 'member' | 'visitor';
+
 const getFallbackInitials = (displayName: string): string => {
   const names = displayName.trim().split(' ');
   if (names.length === 1) {
@@ -51,9 +59,11 @@ const getFallbackInitials = (displayName: string): string => {
 
 interface UserPersonaWithServiceProps extends UserPersonaProps {
   presenceEnabled: boolean;
+  showRoleLabels: boolean;
+  roleLabels: Record<AccessRole, string>;
 }
 
-const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, presenceEnabled }) => {
+const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, presenceEnabled, showRoleLabels, roleLabels }) => {
   const graphService = useUnifiedGraphService();
   
   // Guard against invalid user data
@@ -63,10 +73,12 @@ const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, p
   
   const fallbackInitials = getFallbackInitials(user.displayName);
 
+  const roleText = showRoleLabels && user.accessLevel ? roleLabels[user.accessLevel as AccessRole] || user.accessLevel : user.jobTitle || 'Member';
+
   return (
     <Persona
       text={user.displayName}
-      secondaryText={user.jobTitle || 'Member'}
+      secondaryText={roleText}
       tertiaryText={user.department}
       optionalText={user.officeLocation}
       size={PersonaSize.size40}
@@ -87,25 +99,167 @@ const UserPersona: React.FC<UserPersonaWithServiceProps> = React.memo(({ user, p
   );
 });
 
+const roleLabelMap = (props: IGroupMembersProps): Record<AccessRole, string> => ({
+  owner: props.ownerLabel || 'Owners',
+  admin: props.adminLabel || 'Administrators',
+  member: props.memberLabel || 'Members',
+  visitor: props.visitorLabel || 'Visitors'
+});
+
+const claimPrincipalPatterns = ['c:0', 'spo-grid-all-users', 'everyone except external users', 'everyone'];
+
+const normalizePatternList = (patterns?: string): string[] => {
+  if (!patterns) {
+    return [];
+  }
+  return patterns
+    .split(/\r?\n/)
+    .map(entry => entry.trim().toLowerCase())
+    .filter(entry => entry.length > 0);
+};
+
+const defaultExcludedPrincipals = [
+  'sharepoint\\system',
+  'sharepoint\\app',
+  'nt service\\',
+  'app@sharepoint'
+];
+
 const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element => {
-  const { loading, error, actions: userActions } = useUsers();
+  const { loading, error, actions: userActions, selectors } = useUsers();
   const { searchTerm, searchResults, setSearchTerm, clearSearch } = useSearch();
   const { retry } = useLoadingState();
-  const { presenceEnabled } = usePresence();
-  
+  const { presenceEnabled, togglePresence } = usePresence();
+
   const graphService = useUnifiedGraphService();
   const logger = useLoggingService();
+  const [activeRoleKey, setActiveRoleKey] = useState<string>('all');
+  const availableRoles = useMemo(() => (props.roles.length ? props.roles : ['member']), [props.roles]);
+  const labels = useMemo(() => roleLabelMap(props), [props.ownerLabel, props.adminLabel, props.memberLabel, props.visitorLabel]);
+  const showSummaryGrid = props.showSummaryGrid ?? false;
+  const showRolePivot = props.showRolePivot ?? false;
+  const showPageHeader = props.showPageHeader ?? false;
+  const showCommandBar = props.showCommandBar !== false;
+  const showSectionBorders = props.showSectionBorders !== false;
+  const customHeaderTitle = props.pageHeaderTitle || 'People directory';
+  const customHeaderSubtitle = props.pageHeaderSubtitle || (searchResults.isFiltered
+    ? `Showing ${searchResults.resultCount} of ${searchResults.totalCount}`
+    : `${searchResults.totalCount} people in this site`);
+
+  const cacheKey = useMemo(() => `gmw-exclusions-${props.context.instanceId}`, [props.context.instanceId]);
+
+  const exclusionPatterns = useMemo(() => {
+    const custom = normalizePatternList(props.excludedPrincipals);
+    const signature = `${props.hideClaimsPrincipals !== false ? 'claims-on' : 'claims-off'}|${custom.join('|')}`;
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem(cacheKey);
+        if (stored) {
+          const parsed = JSON.parse(stored) as { signature: string; patterns: string[] };
+          if (parsed.signature === signature) {
+            return parsed.patterns;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const basePatterns = [...defaultExcludedPrincipals];
+    if (props.hideClaimsPrincipals !== false) {
+      basePatterns.push(...claimPrincipalPatterns);
+    }
+
+    const combined = Array.from(new Set([...basePatterns, ...custom].map(pattern => pattern.toLowerCase())));
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ signature, patterns: combined }));
+      } catch {
+        // ignore storage errors
+      }
+    }
+    return combined;
+  }, [props.excludedPrincipals, cacheKey, props.hideClaimsPrincipals]);
+
+  const isClaimsPrincipal = useCallback((user: IUser): boolean => {
+    const candidates = [user.userPrincipalName, user.mail, user.id, user.displayName]
+      .map(value => value?.toLowerCase())
+      .filter(Boolean) as string[];
+    return candidates.some(candidate => claimPrincipalPatterns.some(pattern => candidate.includes(pattern)));
+  }, []);
+
+  const shouldExcludeUser = useCallback((user: IUser): boolean => {
+    if (props.hideClaimsPrincipals !== false && isClaimsPrincipal(user)) {
+      return true;
+    }
+    if (!exclusionPatterns.length) {
+      return false;
+    }
+    const candidates = [user.userPrincipalName, user.mail, user.id, user.displayName]
+      .map(value => value?.toLowerCase())
+      .filter(Boolean) as string[];
+    return candidates.some(candidate => exclusionPatterns.some(pattern => candidate.includes(pattern)));
+  }, [exclusionPatterns, isClaimsPrincipal, props.hideClaimsPrincipals]);
+
+  const isGroupPrincipal = useCallback((user: IUser): boolean => {
+    if (user.isGroup || user.principalType?.toLowerCase().includes('group')) {
+      return true;
+    }
+    return isClaimsPrincipal(user);
+  }, [isClaimsPrincipal]);
+
+  useEffect(() => {
+    setActiveRoleKey('all');
+  }, [availableRoles]);
+
+  const rolePriority: Record<AccessRole, number> = {
+    owner: 4,
+    admin: 3,
+    member: 2,
+    visitor: 1
+  };
+
+  const normalize = (value?: string): string | undefined => value?.trim().toLowerCase() || undefined;
+
+  const getUserKey = (user: IUser): string | undefined => {
+    return (
+      normalize(user.userPrincipalName) ||
+      normalize(user.mail) ||
+      normalize(user.id)
+    );
+  };
 
   const fetchGroupUsers = useCallback(async (): Promise<void> => {
     userActions.loadUsersStart();
-    
+
     const timerId = logger.startTimer('fetchAllSiteMembers');
-    
+
     try {
       logger.info('GroupMembers', 'Starting to fetch site members', { roles: props.roles });
-      
-      const allMembers = await graphService.getAllSiteMembers();
-      
+
+      const allMembers = (await graphService.getAllSiteMembers()).filter(user => !shouldExcludeUser(user));
+
+      const dedupedUsers = new Map<string, IUser>();
+
+      for (const user of allMembers) {
+        const key = getUserKey(user);
+        if (!key) {
+          continue;
+        }
+
+        const accessLevel = (user.accessLevel || 'visitor') as AccessRole;
+        const existing = dedupedUsers.get(key);
+
+        if (!existing) {
+          dedupedUsers.set(key, user);
+        } else {
+          const existingAccess = (existing.accessLevel || 'visitor') as AccessRole;
+          if (rolePriority[accessLevel] > rolePriority[existingAccess]) {
+            dedupedUsers.set(key, { ...user, accessLevel });
+          }
+        }
+      }
+
       const newUsersByRole: IUsersByRole = {
         owner: [],
         admin: [],
@@ -113,18 +267,12 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
         visitor: []
       };
 
-      for (const user of allMembers) {
-        const accessLevel = user.accessLevel || 'visitor';
-        if (props.roles.includes(accessLevel)) {
+      dedupedUsers.forEach(user => {
+        const accessLevel = (user.accessLevel || 'visitor') as AccessRole;
+        if (props.roles.includes(accessLevel as string)) {
           newUsersByRole[accessLevel].push(user);
         }
-      }
-
-      for (const role of props.roles) {
-        if (!newUsersByRole[role as keyof IUsersByRole]) {
-          newUsersByRole[role as keyof IUsersByRole] = [];
-        }
-      }
+      });
 
       userActions.loadUsersSuccess(newUsersByRole);
       
@@ -157,28 +305,38 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
 
   const UserSection: React.FC<{ role: keyof IUsersByRole }> = ({ role }): JSX.Element | null => {
     const { users, totalPages, currentPage, hasMore, actions } = usePaginatedUsers(role);
+
+    useEffect(() => {
+      if (!users.length) {
+        return;
+      }
+      const userIds = users
+        .map(user => user.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+      graphService.getBatchUserPresence(userIds).catch(error => {
+        logger.warn('GroupMembers', 'Failed to batch presence', error);
+      });
+
+      graphService.prefetchUserPhotos(users).catch(error => {
+        logger.warn('GroupMembers', 'Failed to prefetch photos', error);
+      });
+    }, [users, graphService, logger]);
     
     if (users.length === 0 && !searchResults.isFiltered) {
       return null;
     }
     
-    const roleLabels: Record<string, string> = {
-      owner: props.ownerLabel || 'Owners',
-      admin: props.adminLabel || 'Administrators', 
-      member: props.memberLabel || 'Members',
-      visitor: props.visitorLabel || 'Visitors'
-    };
-
-    const handleLoadMore = (): void => {
-      actions.nextPage();
-    };
+    const sectionClassName = [styles.userSection, showSectionBorders ? '' : styles.userSectionBorderless]
+      .filter(Boolean)
+      .join(' ');
 
     return (
       <ErrorBoundary context={`UserSection-${role}`} level="component">
-        <div className={styles.userSection}>
+        <div className={sectionClassName}>
           <Stack horizontal verticalAlign="center" className={styles.sectionHeader}>
             <Text variant="large" as="h3" className={styles.sectionTitle}>
-              {roleLabels[role]} ({users.length}{searchResults.isFiltered ? ` of ${searchResults.resultCount}` : ''})
+              {labels[role as AccessRole]} ({users.length}{searchResults.isFiltered ? ` of ${searchResults.resultCount}` : ''})
             </Text>
             <StackItem grow>
               <div className={styles.sectionDivider} />
@@ -195,17 +353,24 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
                     <ErrorBoundary context={`UserListItem-${user.id}`} level="component">
                       <div className={styles.listItem}>
                         <div className={styles.personaContainer}>
-                          <LivePersona
-                            upn={user.userPrincipalName}
-                            serviceScope={props.context.serviceScope}
-                            template={
-                              <UserPersona
-                                user={user}
-                                context={props.context}
-                                presenceEnabled={presenceEnabled}
-                              />
-                            }
-                          />
+                          <div className={styles.personaWrapper}>
+                            <LivePersona
+                              upn={user.userPrincipalName}
+                              serviceScope={props.context.serviceScope}
+                              template={
+                                <UserPersona
+                                  user={user}
+                                  context={props.context}
+                                  presenceEnabled={presenceEnabled}
+                                  showRoleLabels={props.showRoleLabels ?? false}
+                                  roleLabels={labels}
+                                />
+                              }
+                            />
+                            {isGroupPrincipal(user) && (
+                              <span className={styles.principalBadge}>Group</span>
+                            )}
+                          </div>
                         </div>
                         <div className={styles.listActions}>
                           <IconButton
@@ -239,32 +404,25 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
           
           {totalPages > 1 && (
             <div className={styles.paginationContainer}>
-              {hasMore ? (
-                <PrimaryButton
-                  text="Load More"
-                  onClick={handleLoadMore}
-                  className={styles.loadMoreButton}
-                  iconProps={{ iconName: 'ChevronDown' }}
+              <div className={styles.paginationControls}>
+                <ActionButton
+                  className={styles.paginationButton}
+                  iconProps={{ iconName: 'ChevronLeft' }}
+                  disabled={currentPage === 1}
+                  onClick={() => actions.prevPage()}
+                  text="Previous"
                 />
-              ) : (
-                <div className={styles.paginationControls}>
-                  <DefaultButton
-                    text="Previous"
-                    onClick={() => actions.prevPage()}
-                    disabled={currentPage === 1}
-                    iconProps={{ iconName: 'ChevronLeft' }}
-                  />
-                  <Text variant="medium" className={styles.paginationText}>
-                    Page {currentPage} of {totalPages}
-                  </Text>
-                  <DefaultButton
-                    text="Next"
-                    onClick={() => actions.nextPage()}
-                    disabled={!hasMore}
-                    iconProps={{ iconName: 'ChevronRight' }}
-                  />
-                </div>
-              )}
+                <Text variant="medium" className={styles.paginationText}>
+                  Page {currentPage} of {totalPages}
+                </Text>
+                <ActionButton
+                  className={styles.paginationButton}
+                  iconProps={{ iconName: 'ChevronRight' }}
+                  disabled={!hasMore}
+                  onClick={() => actions.nextPage()}
+                  text="Next"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -272,9 +430,75 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
     );
   };
 
+  const summaryData = useMemo(() => availableRoles.map(role => {
+    const filteredUsers = selectors.getFilteredUsers(role as keyof IUsersByRole);
+    return {
+      role,
+      label: labels[role as AccessRole],
+      count: filteredUsers.length
+    };
+  }), [availableRoles, labels, selectors]);
+
+  const pivotItems = useMemo(() => ['all', ...availableRoles], [availableRoles]);
+  const displayedRoles = useMemo(() => {
+    if (!showRolePivot || activeRoleKey === 'all') {
+      return availableRoles;
+    }
+    return availableRoles.filter(role => role === activeRoleKey);
+  }, [activeRoleKey, availableRoles, showRolePivot]);
+
+  const commandItems: ICommandBarItemProps[] = useMemo(() => [
+    {
+      key: 'refresh',
+      text: 'Refresh',
+      iconProps: { iconName: 'Refresh' },
+      onClick: () => {
+        fetchGroupUsers().catch(console.error);
+      }
+    },
+    {
+      key: 'presence',
+      text: presenceEnabled ? 'Hide presence' : 'Show presence',
+      iconProps: { iconName: 'PresenceChickletVideo' },
+      onClick: () => togglePresence(!presenceEnabled)
+    }
+  ], [fetchGroupUsers, presenceEnabled, togglePresence]);
+
+  const farItems: ICommandBarItemProps[] = useMemo(() => (
+    searchResults.isFiltered ? [{
+      key: 'clearSearch',
+      text: 'Clear search',
+      iconProps: { iconName: 'Clear' },
+      onClick: clearSearch
+    }] : []
+  ), [searchResults.isFiltered, clearSearch]);
+
   return (
     <ErrorBoundary context="GroupMembers" level="page">
       <div className={styles.groupMembers}>
+        <div className={styles.pageHeader}>
+          {showPageHeader && (
+            <div className={styles.headerText}>
+              <Text variant="xLarge" className={styles.title}>{customHeaderTitle}</Text>
+              <Text variant="smallPlus" className={styles.subtitle}>{customHeaderSubtitle}</Text>
+            </div>
+          )}
+          {showCommandBar && (
+            <CommandBar items={commandItems} farItems={farItems} className={styles.commandBar} ariaLabel="People actions" />
+          )}
+        </div>
+
+        {showSummaryGrid && (
+          <div className={styles.summaryGrid}>
+            {summaryData.map(summary => (
+              <div key={summary.role} className={styles.summaryCard}>
+                <Text variant="smallPlus" className={styles.summaryLabel}>{summary.label}</Text>
+                <Text variant="xxLarge" className={styles.summaryValue}>{summary.count}</Text>
+              </div>
+            ))}
+          </div>
+        )}
+
         {props.showSearchBox && (
           <div className={styles.searchContainer}>
             <SearchBox
@@ -282,32 +506,33 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
               onChange={(_, newValue) => handleSearchChange(newValue)}
               iconProps={{ iconName: 'Search' }}
               className={styles.searchBox}
-              underlined
               value={searchTerm}
             />
-            {searchResults.isFiltered && (
-              <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }} style={{ marginTop: 8 }}>
-                <Text variant="small">
-                  Showing {searchResults.resultCount} of {searchResults.totalCount} users
-                </Text>
-                <DefaultButton
-                  text="Clear"
-                  iconProps={{ iconName: 'Clear' }}
-                  onClick={clearSearch}
-                  styles={{ root: { minWidth: 'auto' } }}
-                />
-              </Stack>
-            )}
           </div>
         )}
-        
+
+        {showRolePivot && (
+          <div className={styles.pivotContainer}>
+            <Pivot selectedKey={activeRoleKey} onLinkClick={(item) => setActiveRoleKey(item?.props.itemKey || 'all')}>
+              <PivotItem headerText="All" itemKey="all" />
+              {pivotItems.filter(item => item !== 'all').map(role => (
+                <PivotItem key={role} headerText={labels[role as AccessRole]} itemKey={role} />
+              ))}
+            </Pivot>
+          </div>
+        )}
+
+        {(showRolePivot || showSummaryGrid || showPageHeader) && <Separator className={styles.separator} />}
+
         {loading && (
           <div className={styles.loadingContainer}>
             <Spinner size={SpinnerSize.large} label="Loading group users..." />
+            <Shimmer width="90%" />
+            <Shimmer width="75%" />
             <ProgressIndicator label="Retrieving user information" description="Please wait..." />
           </div>
         )}
-        
+
         {error && (
           <MessageBar
             messageBarType={MessageBarType.error}
@@ -337,16 +562,15 @@ const EnhancedGroupMembers: React.FC<IGroupMembersProps> = (props): JSX.Element 
             </small>
           </MessageBar>
         )}
-        
+
         {!loading && !error && (
           <div className={styles.contentContainer}>
-            {props.roles.map(role => (
+            {displayedRoles.map(role => (
               <UserSection
                 key={role}
                 role={role as keyof IUsersByRole}
               />
             ))}
-            
             {searchResults.isFiltered && !searchResults.hasResults && (
               <MessageBar messageBarType={MessageBarType.info}>
                 <Text>No users found matching &quot;{searchTerm}&quot;. Try adjusting your search terms.</Text>

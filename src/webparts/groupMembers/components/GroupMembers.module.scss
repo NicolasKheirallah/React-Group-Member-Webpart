@@ -14,6 +14,9 @@ $sp-neutralLight: "[theme:neutralLight, default:#edebe9]";
 $sp-neutralLighter: "[theme:neutralLighter, default:#f3f2f1]";
 $sp-white: "[theme:white, default:#ffffff]";
 
+$breakpoint-medium: 1024px;
+$breakpoint-small: 640px;
+
 // Mixins for reusable styles
 @mixin flex-center {
   display: flex;
@@ -39,9 +42,71 @@ $sp-white: "[theme:white, default:#ffffff]";
 $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
 
 .groupMembers {
-  padding: 16px 24px;
+  padding: 16px 24px 32px;
   min-height: 100%;
   font-family: $font-stack;
+  background-color: $sp-white;
+
+  .pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+
+  .headerText {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .title {
+    margin: 0;
+    font-weight: 600;
+    color: $sp-neutralPrimary;
+  }
+
+  .subtitle {
+    color: $sp-neutralSecondary;
+  }
+
+  .commandBar {
+    min-width: 220px;
+  }
+
+  .summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .summaryCard {
+    background-color: $sp-neutralLighter;
+    border-radius: 6px;
+    padding: 12px 16px;
+    border: 1px solid $sp-neutralLight;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .summaryLabel {
+    color: $sp-neutralSecondary;
+  }
+
+  .summaryValue {
+    margin-top: 6px;
+    font-weight: 600;
+    color: $sp-themePrimary;
+  }
+
+  .pivotContainer {
+    margin-bottom: 8px;
+  }
+
+  .separator {
+    margin: 8px 0 16px;
+  }
 
   // Header styles
   .header {
@@ -58,12 +123,13 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
 
   // Search container styles
   .searchContainer {
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     max-width: 600px;
     position: relative;
 
     .searchBox {
       width: 100%;
+      border-radius: 4px;
 
       &:hover {
         border-color: $sp-themePrimary;
@@ -90,11 +156,22 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
   .contentContainer {
     .userSection {
       margin-bottom: 32px;
+      background-color: $sp-white;
+      border-radius: 8px;
+      border: 1px solid $sp-neutralLight;
+      padding: 16px;
+
+      &.#{'userSectionBorderless'} {
+        border: none;
+        background-color: transparent;
+        padding: 0;
+      }
 
       // Section header styles
       .sectionHeader {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         margin-bottom: 16px;
 
         .sectionTitle {
@@ -179,7 +256,7 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
       .userList {
         .listItem {
           padding: 12px 16px;
-          border-radius: 4px;
+          border-radius: 6px;
           margin-bottom: 8px;
           display: flex;
           justify-content: space-between;
@@ -188,10 +265,12 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
           @include transition-ease;
           min-height: 56px; // Ensure consistent height
           overflow: hidden; // Prevent content overflow
+          border: 1px solid transparent;
 
           &:hover {
             color: $sp-themePrimary;
             background-color: $sp-neutralLighter;
+            border-color: $sp-themePrimary;
           }
 
           // Main content area (persona)
@@ -199,6 +278,7 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
             flex: 1;
             display: flex;
             align-items: center;
+            gap: 16px;
             min-width: 0; // Allow shrinking
             margin-right: 12px;
             position: relative;
@@ -212,7 +292,7 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
               
               :global(.ms-Persona-coin) {
                 flex-shrink: 0; // Keep coin size fixed
-                margin-right: 12px;
+                margin-right: 0;
               }
               
               :global(.ms-Persona-details) {
@@ -261,6 +341,16 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
             display: inline-flex;
             align-items: center;
             flex-shrink: 0;
+            gap: 8px;
+          }
+
+          .principalBadge {
+            background-color: $sp-neutralLighter;
+            color: $sp-neutralSecondary;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: 600;
           }
           
           .presenceCircle {
@@ -308,17 +398,28 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
         justify-content: center;
         margin-top: 24px;
 
-        .loadMoreButton {
-          min-width: 180px;
-        }
-
         .paginationControls {
           display: flex;
           align-items: center;
+          gap: 8px;
 
           .paginationText {
             margin: 0 16px;
             color: $sp-neutralSecondary;
+          }
+
+          .paginationButton {
+            background: transparent;
+            border: none;
+            color: $sp-themePrimary;
+            font-weight: 600;
+            :global(.ms-Button-label) {
+              font-weight: 600;
+            }
+            &:hover {
+              background-color: rgba(0,0,0,0.04);
+              border-radius: 999px;
+            }
           }
         }
       }
@@ -384,6 +485,61 @@ $font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica
         }
       }
     }
+  }
+
+  @media (max-width: $breakpoint-medium) {
+    padding: 12px 16px 24px;
+
+    .pageHeader {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .commandBar {
+      width: 100%;
+    }
+
+    .summaryGrid {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .contentContainer .userSection {
+      padding: 12px;
+    }
+  }
+
+  @media (max-width: $breakpoint-small) {
+    .summaryGrid {
+      grid-template-columns: 1fr;
+    }
+
+    .searchContainer {
+      max-width: 100%;
+    }
+
+    .pivotContainer {
+      overflow-x: auto;
+      :global(.ms-Pivot-links) {
+        flex-wrap: nowrap;
+      }
+    }
+
+    .contentContainer .userList .listItem {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+
+      .listActions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+  }
+
+  .userSectionBorderless {
+    border: none;
+    background-color: transparent;
+    padding: 0;
   }
 }
 
